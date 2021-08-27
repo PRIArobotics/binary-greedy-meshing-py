@@ -115,7 +115,14 @@ inline const uint32_t get_vertex(uint32_t x, uint32_t y, uint32_t z, uint32_t ty
 std::vector<uint32_t>* mesh(std::vector<uint8_t>& voxels) {
   Timer timer("meshing", true);
 
+  // CS_P2 is 64^2, uint64_t has 64 bits, so this is a total of 3*64^3 bits
+  // each uint64_t is one "column" in the chunk,
+  // and each of the 3 sections represents the chunk ordered by a different axis
+  // each voxel is 1 bit and only stores whether there's *any* solid block at the position.
   uint64_t axis_cols[CS_P2 * 3] = { 0 };
+  // each voxel has 6 faces, or 2 faces per axis
+  // each bit is 1 (a face) if the corresponding voxel is solid, but the voxel next to it is not
+  // there are no outermost faces, as those would only belong to the padding.
   uint64_t col_face_masks[CS_P2 * 6];
 
   auto vertices = new std::vector<uint32_t>();
