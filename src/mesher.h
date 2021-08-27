@@ -66,36 +66,12 @@ inline constexpr glm::ivec2 ao_dirs[8] = {
    glm::ivec2(1, 1),
 };
 
-inline const int vertexAO(int side1, int side2, int corner) {
-  if (side1 && side2) {
-    return 0;
-  }
-  return 3 - (side1 + side2 + corner);
+inline const bool compare_forward(std::vector<uint8_t>& voxels, int axis, int forward, int right, int bit_pos) {
+  return voxels.at(get_axis_i(axis, right, forward, bit_pos)) == voxels.at(get_axis_i(axis, right, forward + 1, bit_pos));
 }
 
-inline const bool compare_ao(std::vector<uint8_t>& voxels, int axis, int forward, int right, int c, int forward_offset, int right_offset) {
-  for (const auto& ao_dir : ao_dirs) {
-    if (solid_check(voxels.at(get_axis_i(axis, right + ao_dir[0], forward + ao_dir[1], c))) !=
-        solid_check(voxels.at(get_axis_i(axis, right + right_offset + ao_dir[0], forward + forward_offset + ao_dir[1], c)))
-    ) {
-      return false;
-    }
-  }
-  return true;
-}
-
-inline const bool compare_forward(std::vector<uint8_t>& voxels, int axis, int forward, int right, int bit_pos, int light_dir) {
-  return
-    voxels.at(get_axis_i(axis, right, forward, bit_pos)) == voxels.at(get_axis_i(axis, right, forward + 1, bit_pos)) &&
-    compare_ao(voxels, axis, forward, right, bit_pos + light_dir, 1, 0)
-  ;
-}
-
-inline const bool compare_right(std::vector<uint8_t>& voxels, int axis, int forward, int right, int bit_pos, int light_dir) {
-  return
-    voxels.at(get_axis_i(axis, right, forward, bit_pos)) == voxels.at(get_axis_i(axis, right + 1, forward, bit_pos)) &&
-    compare_ao(voxels, axis, forward, right, bit_pos + light_dir, 0, 1)
-  ;
+inline const bool compare_right(std::vector<uint8_t>& voxels, int axis, int forward, int right, int bit_pos) {
+  return voxels.at(get_axis_i(axis, right, forward, bit_pos)) == voxels.at(get_axis_i(axis, right + 1, forward, bit_pos));
 }
 
 inline const void insert_quad(std::vector<uint32_t>* vertices, uint32_t v1, uint32_t v2, uint32_t v3, uint32_t v4, bool flipped) {
@@ -156,7 +132,6 @@ std::vector<uint32_t>* mesh(std::vector<uint8_t>& voxels) {
   // Step 3: Greedy meshing
   for (int face = 0; face < 6; face++) {
     int axis = face / 2;
-    int light_dir = face % 2 == 0 ? 1 : -1;
 
     int merged_forward[CS_P2] = { 0 };
     for (int forward = 1; forward < CS_P - 1; forward++) {
@@ -176,7 +151,7 @@ std::vector<uint32_t>* mesh(std::vector<uint8_t>& voxels) {
 
           if (bit_pos == 0 || bit_pos == CS_P - 1) continue;
 
-          if (compare_forward(voxels, axis, forward, right, bit_pos, light_dir)) {
+          if (compare_forward(voxels, axis, forward, right, bit_pos)) {
             merged_forward[(right * CS_P) + bit_pos]++;
           }
           else {
@@ -195,7 +170,7 @@ std::vector<uint32_t>* mesh(std::vector<uint8_t>& voxels) {
           if (
             (bits_merging_right & (1ULL << bit_pos)) != 0 &&
             merged_forward[(right * CS_P) + bit_pos] == merged_forward[(right + 1) * CS_P + bit_pos] &&
-            compare_right(voxels, axis, forward, right, bit_pos, light_dir)
+            compare_right(voxels, axis, forward, right, bit_pos)
           ) {
             bits_walking_right |= 1ULL << bit_pos;
             merged_right[bit_pos]++;
@@ -213,21 +188,10 @@ std::vector<uint32_t>* mesh(std::vector<uint8_t>& voxels) {
           uint8_t type = voxels.at(get_axis_i(axis, right, forward, bit_pos));
           uint8_t light = 15;
 
-          int c = bit_pos + light_dir;
-          uint8_t ao_F = solid_check(voxels.at(get_axis_i(axis, right, forward - 1, c))) ? 1 : 0;
-          uint8_t ao_B = solid_check(voxels.at(get_axis_i(axis, right, forward + 1, c))) ? 1 : 0;
-          uint8_t ao_L = solid_check(voxels.at(get_axis_i(axis, right - 1, forward, c))) ? 1 : 0;
-          uint8_t ao_R = solid_check(voxels.at(get_axis_i(axis, right + 1, forward, c))) ? 1 : 0;
-
-          uint8_t ao_LFC = solid_check(voxels.at(get_axis_i(axis, right - 1, forward - 1, c))) ? 1 : 0;
-          uint8_t ao_LBC = solid_check(voxels.at(get_axis_i(axis, right - 1, forward + 1, c))) ? 1 : 0;
-          uint8_t ao_RFC = solid_check(voxels.at(get_axis_i(axis, right + 1, forward - 1, c))) ? 1 : 0;
-          uint8_t ao_RBC = solid_check(voxels.at(get_axis_i(axis, right + 1, forward + 1, c))) ? 1 : 0;
-
-          uint8_t ao_LB = vertexAO(ao_L, ao_B, ao_LBC);
-          uint8_t ao_LF = vertexAO(ao_L, ao_F, ao_LFC);
-          uint8_t ao_RB = vertexAO(ao_R, ao_B, ao_RBC);
-          uint8_t ao_RF = vertexAO(ao_R, ao_F, ao_RFC);
+          uint8_t ao_LB = 3;
+          uint8_t ao_LF = 3;
+          uint8_t ao_RB = 3;
+          uint8_t ao_RF = 3;
 
           merged_forward[(right * CS_P) + bit_pos] = 0;
           merged_right[bit_pos] = 0;
