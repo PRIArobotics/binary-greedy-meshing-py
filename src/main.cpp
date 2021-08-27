@@ -10,7 +10,6 @@
 #include "shader.h"
 #include "camera.h"
 #include "noise.h"
-#include "light.h"
 #include "utility.h"
 
 void create_chunk();
@@ -204,11 +203,7 @@ void create_chunk() {
     }
   }
 
-  std::vector<uint8_t> light_map(CS_P3);
-  std::fill(light_map.begin(), light_map.end(), 0);
-  calculate_light(voxels, light_map);
-
-  auto vertices = mesh(voxels, light_map);
+  auto vertices = mesh(voxels);
   if (vertices == nullptr) {
     vertexCount = 0;
   } else {

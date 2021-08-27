@@ -84,18 +84,16 @@ inline const bool compare_ao(std::vector<uint8_t>& voxels, int axis, int forward
   return true;
 }
 
-inline const bool compare_forward(std::vector<uint8_t>& voxels, std::vector<uint8_t>& light_map, int axis, int forward, int right, int bit_pos, int light_dir) {
+inline const bool compare_forward(std::vector<uint8_t>& voxels, int axis, int forward, int right, int bit_pos, int light_dir) {
   return
     voxels.at(get_axis_i(axis, right, forward, bit_pos)) == voxels.at(get_axis_i(axis, right, forward + 1, bit_pos)) &&
-    light_map.at(get_axis_i(axis, right, forward, bit_pos + light_dir)) == light_map.at(get_axis_i(axis, right, forward + 1, bit_pos + light_dir)) &&
     compare_ao(voxels, axis, forward, right, bit_pos + light_dir, 1, 0)
   ;
 }
 
-inline const bool compare_right(std::vector<uint8_t>& voxels, std::vector<uint8_t>& light_map, int axis, int forward, int right, int bit_pos, int light_dir) {
+inline const bool compare_right(std::vector<uint8_t>& voxels, int axis, int forward, int right, int bit_pos, int light_dir) {
   return
     voxels.at(get_axis_i(axis, right, forward, bit_pos)) == voxels.at(get_axis_i(axis, right + 1, forward, bit_pos)) &&
-    light_map.at(get_axis_i(axis, right, forward, bit_pos + light_dir)) == light_map.at(get_axis_i(axis, right + 1, forward, bit_pos + light_dir)) &&
     compare_ao(voxels, axis, forward, right, bit_pos + light_dir, 0, 1)
   ;
 }
@@ -114,8 +112,7 @@ inline const uint32_t get_vertex(uint32_t x, uint32_t y, uint32_t z, uint32_t ty
 }
 
 // voxels - 64^3 (includes neighboring voxels)
-// light_map - ^
-std::vector<uint32_t>* mesh(std::vector<uint8_t>& voxels, std::vector<uint8_t>& light_map) {
+std::vector<uint32_t>* mesh(std::vector<uint8_t>& voxels) {
   Timer timer("meshing", true);
 
   uint64_t axis_cols[CS_P2 * 3] = { 0 };
@@ -172,7 +169,7 @@ std::vector<uint32_t>* mesh(std::vector<uint8_t>& voxels, std::vector<uint8_t>& 
 
           if (bit_pos == 0 || bit_pos == CS_P - 1) continue;
 
-          if (compare_forward(voxels, light_map, axis, forward, right, bit_pos, light_dir)) {
+          if (compare_forward(voxels, axis, forward, right, bit_pos, light_dir)) {
             merged_forward[(right * CS_P) + bit_pos]++;
           }
           else {
@@ -191,7 +188,7 @@ std::vector<uint32_t>* mesh(std::vector<uint8_t>& voxels, std::vector<uint8_t>& 
           if (
             (bits_merging_right & (1ULL << bit_pos)) != 0 &&
             merged_forward[(right * CS_P) + bit_pos] == merged_forward[(right + 1) * CS_P + bit_pos] &&
-            compare_right(voxels, light_map, axis, forward, right, bit_pos, light_dir)
+            compare_right(voxels, axis, forward, right, bit_pos, light_dir)
           ) {
             bits_walking_right |= 1ULL << bit_pos;
             merged_right[bit_pos]++;
@@ -207,7 +204,7 @@ std::vector<uint32_t>* mesh(std::vector<uint8_t>& voxels, std::vector<uint8_t>& 
           uint8_t mesh_up = bit_pos + (face % 2 == 0 ? 1 : 0);
 
           uint8_t type = voxels.at(get_axis_i(axis, right, forward, bit_pos));
-          uint8_t light = light_map.at(get_axis_i(axis, right, forward, bit_pos + light_dir));
+          uint8_t light = 15;
 
           int c = bit_pos + light_dir;
           uint8_t ao_F = solid_check(voxels.at(get_axis_i(axis, right, forward - 1, c))) ? 1 : 0;
